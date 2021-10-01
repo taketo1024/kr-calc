@@ -11,7 +11,7 @@ import SwmKnots
 import SwmKR
 import krCalcLib
 
-let options = Options.parseOrExit()
+var options = Options.parseOrExit()
 
 let dir = options.dir ?? NSTemporaryDirectory() + "kr-calc"
 let storage: krCalcLib.Storage
@@ -24,14 +24,42 @@ do {
 
 let app = Calculator(storage: storage)
 
+app.saveResult = true
 app.field = options.field
+app.levelUpperBound = options.levelUpperBound
 app.logLevel = options.logLevel
 
-let name = options.name ?? { () -> String in
-    options.braid.map{ String($0) }.joined(separator: ",")
+let name = options.name ?? {
+    for i in 0 ... Int.max {
+        let name = "result-\(i)"
+        if !storage.exists(name) {
+            return name
+        }
+    }
+    exit(1)
 }()
 
-let result = app.compute(name, options.braid)
+var K: Link
+
+if let braid = options.braid {
+    app.useSymmetry = true
+    K = Braid<anySize>(code: braid).closure
+} else if let pdCode = options.pdCode {
+    app.useSymmetry = false
+    K = Link(pdCode: pdCode)
+} else {
+    exit(1)
+}
+
+if options.mirror {
+    K = K.mirrored
+}
+
+if K.components.count > 1 {
+    app.useSymmetry = false
+}
+
+let result = app.compute(name, K)
 
 print()
 print(result.toString(format: options.format))

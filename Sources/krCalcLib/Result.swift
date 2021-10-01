@@ -6,12 +6,11 @@
 //
 
 import Foundation
-import ArgumentParser
 import Regex
 import SwmCore
 import SwmKR
 
-public enum ResultFormat: String, ExpressibleByArgument {
+public enum ResultFormat: String {
     case table, polynomial, texTable, texPolynomial
 }
 

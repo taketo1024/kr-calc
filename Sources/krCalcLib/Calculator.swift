@@ -6,8 +6,6 @@
 //
 
 import Foundation
-import ArgumentParser
-
 import SwmCore
 import SwmHomology
 import SwmKnots
@@ -15,70 +13,80 @@ import SwmKR
 import SwmxBigInt
 
 public final class Calculator {
-    public enum Field: String, ExpressibleByArgument {
+    public enum Field: String {
         case Q, QQ
     }
 
     public let storage: Storage
     
     public var field: Field = .Q
-    public var useMirror = true
-    public var saveResult = true
-    public var saveProgress = true
+    public var useSymmetry = true
+    public var levelUpperBound: Int? = nil
+    public var saveResult = false
+    public var saveProgress = false
     public var logLevel = 0
     
     public init(storage: Storage) {
         self.storage = storage
     }
-    
+
     @discardableResult
-    public func compute(_ target: String, _ braidCode: [Int]) -> Result {
-        log("target: \(target)")
+    public func compute(_ name: String, _ b: Braid<anySize>) -> Result {
+        compute(name, b.closure)
+    }
+
+    @discardableResult
+    public func compute(_ name: String, _ K: Link) -> Result {
+        log("target: \(name)")
         log("field: \(field)")
+        log("symmetry: \(useSymmetry)")
 
         let start = Date()
         let result = { () -> Result in
             switch field {
-            case .Q :  return _compute(target, braidCode, RationalNumber.self)
-            case .QQ : return _compute(target, braidCode, BigRational.self)
+            case .Q : return _compute(name, K, RationalNumber.self)
+            case .QQ: return _compute(name, K, BigRational.self)
             }
         }()
         
         log("time: \(time(since: start))")
 
         if saveResult {
-            storage.save(target, result)
-            log("saved: \(storage.absolutePath(target))")
+            storage.save(name, result)
+            log("saved: \(storage.absolutePath(name))")
         }
         
         return result
     }
     
-    private func _compute<R: HomologyCalculatable>(_ target: String, _ braidCode: [Int], _ type: R.Type) -> Result {
-        if useMirror && braidCode.map({ $0.sign }).sum() > 0 {
+    private func _compute<R: HomologyCalculatable>(_ target: String, _ K: Link, _ type: R.Type) -> Result {
+        if useSymmetry && K.writhe > 0 {
             log("compute from mirror.", level: 2)
-            return _compute("m\(target)", braidCode.map{ -$0 }, type).mirror
+            return _compute("m\(target)", K.mirrored, type).mirror
         }
         
         var result: Result = [:]
         
-        let braid = Braid<anySize>(code: braidCode)
-        let K = braid.closure
-        let H = KRHomology<R>(K)
-        
+        let H = KRHomology<R>(K, symmetry: useSymmetry)
         let n = K.crossingNumber
         let w = K.writhe
         let r = K.numberOfSeifertCircles
+        
+        let levelRange = (useSymmetry && levelUpperBound == nil)
+            ? H.levelRange
+            : (-2 * n ... (levelUpperBound ?? -n))
         
         log("\nn = \(n)", level: 2)
         log("w = \(w)", level: 2)
         log("r = \(r)\n", level: 2)
         
-        log("level: \(H.levelRange)\n", level: 2)
+        log("level-range: \(levelRange)\n", level: 2)
         
-        log("i: \(H.iRange)", level: 2)
-        log("j: \(H.jRange)", level: 2)
-        log("k: \(H.kRange)\n", level: 2)
+        if useSymmetry {
+            log("i: \(H.iRange)", level: 2)
+            log("j: \(H.jRange)", level: 2)
+            log("k: \(H.kRange)\n", level: 2)
+        }
         
         let tmpFile = "tmp-\(target)"
         if saveProgress, let tmp = storage.load(tmpFile) {
@@ -86,19 +94,22 @@ public final class Calculator {
             log("continue from:\n\(result.toString(format: .table)))\n", level: 3)
         }
         
-        for s in H.levelRange {
+        for s in levelRange {
             log("level: \(s)", level: 3)
             
             for v in 0 ... n {
                 for h in 0 ... n {
                     let (i, j, k) = H.hvs2ijk(h, v, s)
                     
-                    // skipping conditions
-                    if result[[i, j, k]] != nil
-                        || i > 0
+                    if result[[i, j, k]] != nil {
+                        continue
+                    }
+                    
+                    if useSymmetry && (i > 0
                         || !H.iRange.contains(i)
                         || !H.jRange.contains(j)
                         || !H.kRange.contains(k + 2 * i)
+                    )
                     {
                         continue
                     }
@@ -110,7 +121,10 @@ public final class Calculator {
                     log("\t\t\(d)", level: 3)
                     
                     result[[i, j, k]] = d
-                    result[[-i, j, k + 2 * i]] = d
+                    
+                    if useSymmetry && i < 0 {
+                        result[[-i, j, k + 2 * i]] = d
+                    }
                     
                     if saveProgress {
                         storage.save(tmpFile, result)

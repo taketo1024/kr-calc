@@ -12,9 +12,9 @@ let package = Package(
 //            path: "../swm-core/"
         ),
         .package(
-            url: "https://github.com/taketo1024/swm-kr.git",
-            from: "0.5.0"
-//            path: "../swm-kr/"
+//            url: "https://github.com/taketo1024/swm-kr.git",
+//            from: "0.5.0"
+            path: "../swm-kr/"
         ),
         .package(
             url: "https://github.com/taketo1024/swm-eigen.git",

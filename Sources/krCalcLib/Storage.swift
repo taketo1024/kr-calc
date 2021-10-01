@@ -16,16 +16,16 @@ public struct Storage {
         try storage.prepare()
     }
     
-    func absolutePath(_ name: String) -> String {
+    public func absolutePath(_ name: String) -> String {
         "\(storage.dir)/\(name).json"
     }
     
-    func exists(_ name: String) -> Bool {
+    public func exists(_ name: String) -> Bool {
         let file = "\(name).json"
         return storage.exists(name: file)
     }
     
-    func load(_ name: String) -> Result? {
+    public func load(_ name: String) -> Result? {
         if exists(name) {
             let file = "\(name).json"
             return try? storage.loadJSON(name: file)
@@ -34,12 +34,12 @@ public struct Storage {
         }
     }
 
-    func save(_ name: String, _ str: Result) {
+    public func save(_ name: String, _ str: Result) {
         let file = "\(name).json"
         try! storage.saveJSON(name: file, object: str)
     }
     
-    func delete(_ name: String) {
+    public func delete(_ name: String) {
         if exists(name) {
             let file = "\(name).json"
             try! storage.delete(file)
