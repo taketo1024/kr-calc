@@ -8,3 +8,4 @@ A program that computes the (reduced) **HOMFLY homology** for knots.
 
 ## Installation guide
 
+To be updated soon. 
